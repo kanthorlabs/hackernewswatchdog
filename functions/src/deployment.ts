@@ -13,3 +13,6 @@ export const BOTS_AUTHENTICATION_TOKEN = process.env.BOTS_AUTHENTICATION_TOKEN;
 if (!process.env.BOTS_TELEGRAM_TOKEN)
   throw new Error("BOTS_TELEGRAM_TOKEN is required");
 export const BOTS_TELEGRAM_TOKEN = process.env.BOTS_TELEGRAM_TOKEN;
+
+export const HACKERNEWS_ENDPOINT =
+  process.env.HACKERNEWS_ENDPOINT || "https://hacker-news.firebaseio.com";

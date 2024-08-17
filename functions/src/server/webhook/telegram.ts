@@ -1,6 +1,6 @@
 import * as logger from "firebase-functions/logger";
 import * as deployment from "../../deployment";
-import { IGatewayHandler } from "../types";
+import { IGatewayHandler } from "../../types";
 import bot from "../../bots/telegram";
 
 export function use(): IGatewayHandler {

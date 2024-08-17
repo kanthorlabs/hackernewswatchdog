@@ -35,3 +35,7 @@ jobs:
           args: deploy --debug
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: set webhook
+        working-directory: ./functions
+        run: node scripts/set-telegram-webhook.js 

@@ -21,3 +21,28 @@ export type IGatewayHandler = (
   res: Response<any, Record<string, any>>,
   next: NextFunction
 ) => Promise<any>;
+
+export interface IUser {
+  id: string;
+  name: string;
+  username: string;
+}
+
+export enum DocumentType {
+  Story = "story",
+  Comment = "comment",
+  Job = "job",
+  Poll = "poll",
+  PollOpt = "pollopt",
+}
+
+export interface IDocument {
+  type: DocumentType;
+  id: number;
+  by: string;
+  parent: number;
+  kids: number[];
+  time: number;
+  text: string;
+  title?: string;
+}
