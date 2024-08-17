@@ -1,10 +1,10 @@
-import { Telegraf } from "telegraf";
+import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+import { Telegraf } from "telegraf";
 import _ from "lodash";
 import * as deployment from "../deployment";
 import * as database from "../database";
 import * as hackernews from "../hackernews";
-import { IDocument, IUser } from "../types";
 
 const bot = new Telegraf(deployment.BOTS_TELEGRAM_TOKEN);
 
@@ -38,7 +38,7 @@ bot.command("watch", async (ctx) => {
   }
   const doc = await hackernews.get(id);
 
-  const user: IUser = {
+  const user: database.IUser = {
     id: String(ctx.message.from.id),
     name: [ctx.message.from.first_name, ctx.message.from.last_name]
       .filter(Boolean)
@@ -46,29 +46,21 @@ bot.command("watch", async (ctx) => {
     username: ctx.message.from.username || "",
   };
 
-  const batch = admin.firestore().batch();
-  // upsert user
-  batch.set(
-    admin.firestore().collection(database.COLLECTION_USER).doc(user.id),
-    user,
-    { merge: true }
-  );
-  // upsert thread
-  batch.set(
-    admin
-      .firestore()
-      .collection(database.COLLECTION_USER)
-      .doc(user.id)
-      .collection(database.COLLECTION_WATCHLIST)
-      .doc(String(doc.id)),
-    doc,
-    { merge: true }
-  );
-  await batch.commit();
+  const ok = await hackernews
+    .watch(doc, user)
+    .then(() => true)
+    .catch((err) => {
+      logger.error(err);
+      return false;
+    });
+  if (!ok) {
+    ctx.reply("⚠️ We could not start watching this thread or comment.");
+    return;
+  }
 
   const messages = [
     `🔔 You are now watching a *${_.startCase(doc.type)}*\n`,
-    ...format(doc),
+    ...hackernews.toView(doc),
   ];
   ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
 });
@@ -81,7 +73,7 @@ bot.command("unwatch", async (ctx) => {
   }
   const uid = String(ctx.message.from.id);
 
-  const doc: IDocument | null = await admin
+  const doc: database.IDocument | null = await admin
     .firestore()
     .collection(database.COLLECTION_USER)
     .doc(uid)
@@ -94,17 +86,21 @@ bot.command("unwatch", async (ctx) => {
     return;
   }
 
-  await admin
-    .firestore()
-    .collection(database.COLLECTION_USER)
-    .doc(uid)
-    .collection(database.COLLECTION_WATCHLIST)
-    .doc(String(id))
-    .delete();
+  const ok = await hackernews
+    .unwatch(doc, uid)
+    .then(() => true)
+    .catch((err) => {
+      logger.error(err);
+      return false;
+    });
+  if (!ok) {
+    ctx.reply("⚠️ We could not stop watching this thread or comment.");
+    return;
+  }
 
   const messages = [
     `🚫 You have stopped watching the following *${_.startCase(doc.type)}*\n`,
-    ...format(doc),
+    ...hackernews.toView(doc),
   ];
   ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
 });
@@ -112,13 +108,19 @@ bot.command("unwatch", async (ctx) => {
 bot.command("list", async (ctx) => {
   const uid = String(ctx.message.from.id);
 
-  const docs: IDocument[] = await admin
-    .firestore()
-    .collection(database.COLLECTION_USER)
-    .doc(uid)
-    .collection(database.COLLECTION_WATCHLIST)
-    .get()
-    .then((s) => s.docs.map((d) => d.data() as IDocument));
+  const docs: database.IDocument[] | null = await hackernews
+    .list(uid)
+    .catch((err) => {
+      logger.error(err);
+      return null;
+    });
+  if (!docs) {
+    ctx.reply(
+      "⚠️ We could not get the list of threads or comments you're watching."
+    );
+    return;
+  }
+
   if (docs.length === 0) {
     ctx.reply("🔍 You are not watching any threads or comments.");
     return;
@@ -127,7 +129,7 @@ bot.command("list", async (ctx) => {
   // sort by time ascending because in Telegram App,
   // if the list is too long, the last item you can see is the latest one
   const lines = _.sortBy(docs, "time").map((d, i) =>
-    format(d, i + 1).join("\n")
+    hackernews.toView(d, i + 1).join("\n")
   );
   const messages = [
     "🔍 You are currently watching the following threads or comments:",
@@ -137,16 +139,3 @@ bot.command("list", async (ctx) => {
 });
 
 export default bot;
-
-function format(doc: IDocument, counter?: number): string[] {
-  const time = new Date(doc.time * 1000).toISOString(); // Convert Unix timestamp to human-readable format
-  const messages: string[] = [];
-
-  if (counter) messages.push(`🗳️ #${counter} - *${_.startCase(doc.type)}*`);
-  if (doc.title) messages.push(`📖 *Title:* ${doc.title}`);
-  messages.push(`🆔 *ID:* ${doc.id}`);
-  messages.push(`👤 *Author:* ${doc.by}`);
-  messages.push(`🕒 *Posted at:* ${time}`);
-
-  return messages;
-}
