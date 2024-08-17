@@ -1,0 +1,37 @@
+name: main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@master
+
+      - name: install backend
+        working-directory: ./functions
+        run: npm ci
+
+      - name: prepare .env
+        working-directory: ./functions
+        run: |
+          touch .env
+          echo BOTS_TELEGRAM_TOKEN=$BOTS_TELEGRAM_TOKEN >> .env
+          echo BOTS_TELEGRAM_WEBHOOK_URL=$BOTS_TELEGRAM_WEBHOOK_URL >> .env
+          echo BOTS_AUTHENTICATION_TOKEN=$BOTS_AUTHENTICATION_TOKEN >> .env
+        env:
+          BOTS_TELEGRAM_TOKEN: ${{ secrets.BOTS_TELEGRAM_TOKEN }}
+          BOTS_TELEGRAM_WEBHOOK_URL: ${{ secrets.BOTS_TELEGRAM_WEBHOOK_URL }}
+          BOTS_AUTHENTICATION_TOKEN: ${{ secrets.BOTS_AUTHENTICATION_TOKEN }}
+
+      - name: deploy
+        uses: w9jds/firebase-action@v13.10.0
+        with:
+          args: deploy --debug
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
