@@ -2,7 +2,9 @@ import * as logger from "firebase-functions/logger";
 import express from "express";
 import cors from "cors";
 import { json } from "body-parser";
-import * as webhook from "./webhook";
+import webhook from "./webhook";
+import crawler from "./crawler";
+import alert from "./alert";
 
 export function create() {
   const server = express();
@@ -13,7 +15,9 @@ export function create() {
     res.json({ now: new Date().toISOString() });
   });
 
-  server.post("/webhook/telegram", webhook.telegram.use());
+  server.use("/webhook", webhook);
+  server.use("/crawler", crawler);
+  server.use("/alert", alert);
 
   server.use((req, res) => {
     logger.error("404", req.path);

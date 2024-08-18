@@ -1,10 +1,10 @@
-import * as logger from "firebase-functions/logger";
-import * as admin from "firebase-admin";
 import { Telegraf } from "telegraf";
+import { User as TelegrafUser } from "telegraf/types";
 import _ from "lodash";
 import * as deployment from "../deployment";
 import * as database from "../database";
 import * as hackernews from "../hackernews";
+import * as utils from "../utils";
 
 const bot = new Telegraf(deployment.BOTS_TELEGRAM_TOKEN);
 
@@ -36,23 +36,17 @@ bot.command("watch", async (ctx) => {
     ctx.reply("⚠️ We could not parse the id of the thread or comment.");
     return;
   }
-  const doc = await hackernews.get(id);
-
-  const user: database.IUser = {
-    id: String(ctx.message.from.id),
-    name: [ctx.message.from.first_name, ctx.message.from.last_name]
-      .filter(Boolean)
-      .join(" "),
-    username: ctx.message.from.username || "",
-  };
+  const doc = await hackernews.get(id).catch(utils.catcher);
+  if (!doc) {
+    ctx.reply("⚠️ We could not find the thread or comment.");
+    return;
+  }
+  const user = toUser(ctx.message.from);
 
   const ok = await hackernews
-    .watch(doc, user)
+    .watch(user, doc)
     .then(() => true)
-    .catch((err) => {
-      logger.error(err);
-      return false;
-    });
+    .catch(utils.catcher);
   if (!ok) {
     ctx.reply("⚠️ We could not start watching this thread or comment.");
     return;
@@ -71,28 +65,17 @@ bot.command("unwatch", async (ctx) => {
     ctx.reply("⚠️ We could not parse the id of the thread or comment.");
     return;
   }
-  const uid = String(ctx.message.from.id);
-
-  const doc: database.IDocument | null = await admin
-    .firestore()
-    .collection(database.COLLECTION_USER)
-    .doc(uid)
-    .collection(database.COLLECTION_WATCHLIST)
-    .doc(String(id))
-    .get()
-    .then((s) => s.data() as any);
+  const doc = await hackernews.get(id).catch(utils.catcher);
   if (!doc) {
-    ctx.reply("🔍 You didn't watch this thread or comment before.");
+    ctx.reply("⚠️ We could not find the thread or comment.");
     return;
   }
+  const user = toUser(ctx.message.from);
 
   const ok = await hackernews
-    .unwatch(doc, uid)
+    .unwatch(user, doc)
     .then(() => true)
-    .catch((err) => {
-      logger.error(err);
-      return false;
-    });
+    .catch(utils.catcher);
   if (!ok) {
     ctx.reply("⚠️ We could not stop watching this thread or comment.");
     return;
@@ -106,14 +89,11 @@ bot.command("unwatch", async (ctx) => {
 });
 
 bot.command("list", async (ctx) => {
-  const uid = String(ctx.message.from.id);
+  const user = toUser(ctx.message.from);
 
   const docs: database.IDocument[] | null = await hackernews
-    .list(uid)
-    .catch((err) => {
-      logger.error(err);
-      return null;
-    });
+    .list(user)
+    .catch(utils.catcher);
   if (!docs) {
     ctx.reply(
       "⚠️ We could not get the list of threads or comments you're watching."
@@ -139,3 +119,12 @@ bot.command("list", async (ctx) => {
 });
 
 export default bot;
+
+function toUser(from: TelegrafUser): database.IUser {
+  return {
+    id: String(from.id),
+    name: [from.first_name, from.last_name].filter(Boolean).join(" "),
+    username: from.username || "",
+    watch_list: [],
+  };
+}
