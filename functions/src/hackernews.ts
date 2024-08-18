@@ -42,7 +42,6 @@ export async function get(id: number): Promise<IDocument> {
 }
 
 export function toView(doc: IDocument, counter?: number): string[] {
-  const time = new Date(doc.time * 1000).toISOString(); // Convert Unix timestamp to human-readable format
   const messages: string[] = [];
 
   if (counter) {
@@ -59,6 +58,7 @@ export function toView(doc: IDocument, counter?: number): string[] {
   messages.push(
     `👤 *Author:* [${doc.by}](https://news.ycombinator.com/user?id=${doc.by})`
   );
+  const time = new Date(doc.time * 1000).toISOString(); // Convert Unix timestamp to human-readable format
   messages.push(`🕒 *Posted at:* ${time}`);
 
   if (Number.isSafeInteger(doc.score)) {
@@ -101,10 +101,11 @@ export async function watch(user: IUser, doc: IDocument) {
     let c = await tx.get(cref).then((s) => s.data() as ICrawler);
     if (!c) {
       c = {
-        id: doc.id,
-        enqueue_at: new Date().getTime(),
-        schedule_at: new Date().getTime() + config.crawler.init_delay,
+        doc_id: doc.id,
+        enqueue_at: Date.now(),
+        schedule_at: Date.now() + config.crawler.delay,
         watch_by: [],
+        schedule_attempts: 0,
         doc,
         diff: { ts: new Date() },
       };
@@ -130,10 +131,11 @@ export async function unwatch(user: IUser, doc: IDocument) {
     let c = await tx.get(cref).then((s) => s.data() as ICrawler);
     if (!c) {
       c = {
-        id: doc.id,
-        enqueue_at: new Date().getTime(),
-        schedule_at: new Date().getTime() + config.crawler.init_delay,
+        doc_id: doc.id,
+        enqueue_at: Date.now(),
         watch_by: [],
+        schedule_at: Date.now() + config.crawler.delay,
+        schedule_attempts: 0,
         doc,
         diff: { ts: new Date() },
       };
@@ -166,20 +168,20 @@ export async function list(user: IUser) {
     .then((s) => s.docs.map((d) => d.data() as ICrawler).map((d) => d.doc));
 }
 
-export async function track(cid: number) {
+export async function track(docId: number) {
   return admin.firestore().runTransaction(async (tx) => {
     const cref = admin
       .firestore()
       .collection(COLLECTION_CRAWLER)
-      .doc(String(cid));
+      .doc(String(docId));
     let crawler = await tx.get(cref).then((s) => s.data() as ICrawler);
     if (!crawler) {
-      logger.error(`crawler ${cid} is not found`);
+      logger.error(`crawler with doc #${docId} is not found`);
       return null;
     }
 
     const prev = crawler.doc;
-    const next = await get(crawler.id);
+    const next = await get(crawler.doc_id);
 
     // update latest doc
     crawler.doc = next;
@@ -189,14 +191,17 @@ export async function track(cid: number) {
 
     let alerts: IAlert[] = [];
     if (crawler.watch_by.length > 0 && hasDiff(crawler.diff)) {
-      alerts = crawler.watch_by.map((uid) => ({
-        id: ulid(),
-        crawler_id: crawler.id,
-        uid,
-        diff: crawler.diff,
-        created_at: new Date(),
-        text: toAlert(crawler.doc, crawler.diff).join("\n"),
-      }));
+      alerts = crawler.watch_by.map(
+        (uid) =>
+          ({
+            id: ulid(),
+            doc_id: crawler.doc_id,
+            uid,
+            diff: crawler.diff,
+            created_at: new Date(),
+            text: toAlert(crawler.doc, crawler.diff).join("\n"),
+          } as IAlert)
+      );
 
       for (let alert of alerts) {
         tx.set(
@@ -246,17 +251,22 @@ export function toAlert(doc: IDocument, diff?: IDocumentDiff): string[] {
   const emoji = type2emoji(doc.type);
   messages.push(`${emoji} *Type*: ${doc.type}`);
   if (doc.title) messages.push(`📝 *Title:* ${doc.title}`);
+  messages.push(
+    `👤 *Author:* [${doc.by}](https://news.ycombinator.com/user?id=${doc.by})`
+  );
+  const time = new Date(doc.time * 1000).toISOString(); // Convert Unix timestamp to human-readable format
+  messages.push(`🕒 *Posted at:* ${time}`);
 
   messages.push("------------------------------");
 
   if (diff?.score) {
     messages.push(
-      `⭐️ *Score:* ${diff.score_prev} # ${diff.score_next} -> *${diff.score}*`
+      `⭐️ *Score:* ${diff.score_prev} -> ${diff.score_next} => *${diff.score}*`
     );
   }
   if (diff?.descendants) {
     messages.push(
-      `💬 *Comments:* ${diff.descendants_prev} # ${diff.descendants_next} -> *${diff.descendants}*`
+      `💬 *Comments:* ${diff.descendants_prev} -> ${diff.descendants_next} => *${diff.descendants}*`
     );
   }
 

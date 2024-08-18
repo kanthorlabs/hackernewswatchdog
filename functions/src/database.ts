@@ -1,5 +1,6 @@
 export const COLLECTION_USER = "user";
 export const COLLECTION_CRAWLER = "crawler";
+export const COLLECTION_CRAWLER_TASK = "crawler_task";
 export const COLLECTION_ALERT = "alert";
 
 export interface IUser {
@@ -36,13 +37,20 @@ export interface IDocument {
 }
 
 export interface ICrawler {
-  id: number;
+  doc_id: number;
   enqueue_at: number;
-  schedule_at: number;
   watch_by: string[];
+  schedule_at: number;
+  schedule_attempts: number;
 
   doc: IDocument;
   diff: IDocumentDiff;
+}
+
+export interface ICrawlerTask {
+  id: string;
+  doc_id: number;
+  created_at: Date;
 }
 
 export interface IDocumentDiff {
@@ -57,7 +65,7 @@ export interface IDocumentDiff {
 
 export interface IAlert {
   id: string;
-  crawler_id: number;
+  doc_id: number;
   uid: string;
   diff: IDocumentDiff;
   created_at: Date;
