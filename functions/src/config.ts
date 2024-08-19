@@ -4,9 +4,9 @@ export default {
     factor: Number(process.env.CRALWER_FACTOR) || 4,
     random_percentage: Number(process.env.CRALWER_RANDOM_PERCENTAGE) || 10,
     max_attempts: Number(process.env.CRALWER_MAX_ATTEMPTS) || 10,
-    concurrency: Number(process.env.CRALWER_CONCURRENCY) || 1,
+    schedule_size: Number(process.env.CRALWER_SCHEDULE_SIZE) || 10,
   },
   alert: {
-    concurrency: Number(process.env.ALERT_CONCURRENCY) || 10,
+    schedule_size: Number(process.env.ALERT_SCHEDULE_SIZE) || 10,
   },
 };

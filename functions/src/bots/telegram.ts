@@ -1,4 +1,5 @@
 import { Telegraf } from "telegraf";
+import * as logger from "firebase-functions/logger";
 import { User as TelegrafUser } from "telegraf/types";
 import _ from "lodash";
 import * as deployment from "../deployment";
@@ -15,10 +16,10 @@ bot.start(async (ctx) => {
     "💬 Type /help to explore all the available commands and features!",
   ];
 
-  ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
 });
 
-bot.command("help", (ctx) => {
+bot.command("help", async (ctx) => {
   const messages = [
     `✨ *Hacker News WatchDog Bot - Commands* ✨\n`,
     `Here’s what you can do:\n`,
@@ -27,18 +28,18 @@ bot.command("help", (ctx) => {
     `🔍 /list - Show the list of threads or comments you're currently watching.`,
   ];
 
-  ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
 });
 
 bot.command("watch", async (ctx) => {
   const id = hackernews.parse(ctx.message.text);
   if (!id) {
-    ctx.reply("⚠️ We could not parse the id of the thread or comment.");
+    await ctx.reply("⚠️ We could not parse the id of the thread or comment.");
     return;
   }
   const doc = await hackernews.get(id).catch(utils.catcher);
   if (!doc) {
-    ctx.reply("⚠️ We could not find the thread or comment.");
+    await ctx.reply("⚠️ We could not find the thread or comment.");
     return;
   }
   const user = toUser(ctx.message.from);
@@ -48,7 +49,7 @@ bot.command("watch", async (ctx) => {
     .then(() => true)
     .catch(utils.catcher);
   if (!ok) {
-    ctx.reply("⚠️ We could not start watching this thread or comment.");
+    await ctx.reply("⚠️ We could not start watching this thread or comment.");
     return;
   }
 
@@ -56,18 +57,25 @@ bot.command("watch", async (ctx) => {
     `🔔 You are now watching a *${_.startCase(doc.type)}*\n`,
     ...hackernews.toView(doc),
   ];
-  ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  try {
+    await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  } catch (err: any) {
+    await ctx.reply(
+      `We were unable to produce messages for you due to invalid characters.`
+    );
+    logger.error(`${err.message} | ${messages.join("\n")}`);
+  }
 });
 
 bot.command("unwatch", async (ctx) => {
   const id = hackernews.parse(ctx.message.text);
   if (!id) {
-    ctx.reply("⚠️ We could not parse the id of the thread or comment.");
+    await ctx.reply("⚠️ We could not parse the id of the thread or comment.");
     return;
   }
   const doc = await hackernews.get(id).catch(utils.catcher);
   if (!doc) {
-    ctx.reply("⚠️ We could not find the thread or comment.");
+    await ctx.reply("⚠️ We could not find the thread or comment.");
     return;
   }
   const user = toUser(ctx.message.from);
@@ -77,7 +85,7 @@ bot.command("unwatch", async (ctx) => {
     .then(() => true)
     .catch(utils.catcher);
   if (!ok) {
-    ctx.reply("⚠️ We could not stop watching this thread or comment.");
+    await ctx.reply("⚠️ We could not stop watching this thread or comment.");
     return;
   }
 
@@ -85,7 +93,7 @@ bot.command("unwatch", async (ctx) => {
     `🚫 You have stopped watching the following *${_.startCase(doc.type)}*\n`,
     ...hackernews.toView(doc),
   ];
-  ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
 });
 
 bot.command("list", async (ctx) => {
@@ -95,14 +103,14 @@ bot.command("list", async (ctx) => {
     .list(user)
     .catch(utils.catcher);
   if (!docs) {
-    ctx.reply(
+    await ctx.reply(
       "⚠️ We could not get the list of threads or comments you're watching."
     );
     return;
   }
 
   if (docs.length === 0) {
-    ctx.reply("🔍 You are not watching any threads or comments.");
+    await ctx.reply("🔍 You are not watching any threads or comments.");
     return;
   }
 
@@ -114,8 +122,17 @@ bot.command("list", async (ctx) => {
   const messages = [
     "🔍 You are currently watching the following threads or comments:",
     ...lines,
+    `📈 Count: ${docs.length} items`,
   ];
-  ctx.reply(messages.join("\n---------\n"), { parse_mode: "Markdown" });
+
+  try {
+    await ctx.reply(messages.join("\n---------\n"), { parse_mode: "Markdown" });
+  } catch (err: any) {
+    await ctx.reply(
+      `We found ${docs.length} but were unable to produce messages for you due to invalid characters.`
+    );
+    logger.error(`${err.message} | ${messages.join("\n")}`);
+  }
 });
 
 export default bot;

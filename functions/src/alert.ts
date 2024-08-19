@@ -1,4 +1,4 @@
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { ScheduledEvent } from "firebase-functions/v2/scheduler";
 import { COLLECTION_ALERT, IAlert } from "./database";
@@ -13,11 +13,13 @@ export async function send(alert: IAlert) {
 
 export function useSchedule() {
   return async function schedule(event: ScheduledEvent) {
+    logger.debug("scheduled at", event.scheduleTime);
+
     const alerts = await admin
       .firestore()
       .collection(COLLECTION_ALERT)
       .where("delivered_at", "==", 0)
-      .limit(config.alert.concurrency)
+      .limit(config.alert.schedule_size)
       .get();
     if (alerts.empty) {
       return;
@@ -32,7 +34,7 @@ export function useSchedule() {
     const batch = admin.firestore().batch();
     docs.forEach((d, i) => {
       const ref = admin.firestore().collection(COLLECTION_ALERT).doc(d.id);
-      batch.update(ref, { delivered_at: Date.now, result: results[i] });
+      batch.update(ref, { delivered_at: Date.now(), result: results[i] });
     });
     await batch.commit();
 

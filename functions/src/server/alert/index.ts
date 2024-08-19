@@ -1,5 +1,5 @@
 import { Router } from "express";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import bot from "../../bots/telegram";
 import * as database from "../../database";
 import * as utils from "../../utils";

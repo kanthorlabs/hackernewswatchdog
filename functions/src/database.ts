@@ -63,6 +63,7 @@ export interface ICrawlerTask {
   size: number;
   created_at: Date;
   finalized_at: number;
+  item_count: number;
   error: string;
 }
 

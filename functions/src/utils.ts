@@ -25,6 +25,6 @@ export function getScheduleIdFromtime(ts: number): string {
 }
 
 export function catcher(err: Error) {
-  logger.error(err);
+  logger.error(err.message);
   return null;
 }

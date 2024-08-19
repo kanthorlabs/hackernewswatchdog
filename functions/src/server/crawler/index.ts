@@ -1,5 +1,5 @@
 import { Router } from "express";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import _ from "lodash";
 import * as database from "../../database";
 import * as hackernews from "../../hackernews";

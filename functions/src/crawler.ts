@@ -1,4 +1,4 @@
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { ParamsOf } from "firebase-functions/lib/common/params";
 import {
@@ -16,6 +16,7 @@ import {
   ICrawlerTask,
   SystemKey,
   ISystemCrawler,
+  COLLECTION_ALERT,
 } from "./database";
 import * as utils from "./utils";
 import * as hackernews from "./hackernews";
@@ -32,7 +33,7 @@ export async function scan(from: string, to: string, size: number) {
       .limit(size);
     const r = await tx.get(ref);
     // no more task, return right cursor
-    if (r.empty) return to;
+    if (r.empty) return { cursor: to, count: 0 };
 
     let cursor = "";
     // countinue scanning
@@ -46,13 +47,19 @@ export async function scan(from: string, to: string, size: number) {
         logger.error(`unable to get doc ${crawler.doc_id}`);
         continue;
       }
+      for (let alert of r.alerts) {
+        tx.set(
+          admin.firestore().collection(COLLECTION_ALERT).doc(alert.id),
+          alert
+        );
+      }
       tx.set(doc.ref, r.crawler, { merge: true });
     }
 
     // we are at the last page, set cursor to right cursor
     if (r.docs.length < size) cursor = to;
 
-    return cursor;
+    return { cursor, count: r.docs.length };
   });
 }
 
@@ -65,7 +72,7 @@ export function onTaskWritten<Document extends string>() {
   ) {
     const task = event.data?.after.data() as ICrawlerTask | undefined;
     if (!task) {
-      logger.error(`task ${event.params.task_id} is not found`);
+      logger.error(`[${event.type}] task ${event.params.task_id} is not found`);
       return;
     }
 
@@ -76,14 +83,15 @@ export function onTaskWritten<Document extends string>() {
       return;
     }
 
-    const next = await scan(task.from, task.to, task.size).catch((error) => {
+    const r = await scan(task.from, task.to, task.size).catch((error) => {
       logger.error(`${error.message} | ${JSON.stringify(task)}`);
       task.error = error.message;
-      return "";
+      return { cursor: "", count: 0 };
     });
+    task.item_count += r.count;
     // move left cursor to next value
-    if (Boolean(next) && next < task.to) {
-      task.from = next;
+    if (Boolean(r.cursor) && r.cursor < task.to) {
+      task.from = r.cursor;
     } else {
       // got error or no more task
       task.finalized_at = Date.now();
@@ -98,6 +106,8 @@ export function onTaskWritten<Document extends string>() {
 }
 export function useSchedule() {
   return async function schedule(event: ScheduledEvent) {
+    logger.debug("scheduled at", event.scheduleTime);
+
     return admin.firestore().runTransaction(async (tx) => {
       const active = await tx.get(
         admin
@@ -125,12 +135,13 @@ export function useSchedule() {
       const to = utils.getScheduleIdFromtime(Date.now());
 
       const task: ICrawlerTask = {
-        id: [from, to, config.crawler.concurrency].map(String).join("_"),
+        id: [from, to, config.crawler.schedule_size].map(String).join("_"),
         from,
         to,
-        size: config.crawler.concurrency,
+        size: config.crawler.schedule_size,
         created_at: new Date(),
         finalized_at: 0,
+        item_count: 0,
         error: "",
       };
       tx.set(

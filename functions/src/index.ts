@@ -24,9 +24,21 @@ export const api = onRequest(
 export const scheduleAlertSending = onSchedule(
   {
     region: deployment.FIREBASE_REGION,
-    schedule: "*/5 * * * *",
+    schedule: "* * * * *",
+    retryCount: 0,
+    concurrency: 1,
   },
   alert.useSchedule()
+);
+
+export const scheduleCrawlerTask = onSchedule(
+  {
+    region: deployment.FIREBASE_REGION,
+    schedule: "* * * * *",
+    retryCount: 0,
+    concurrency: 1,
+  },
+  crawler.useSchedule()
 );
 
 export const onCrawlerTaskWritten = onDocumentWritten(

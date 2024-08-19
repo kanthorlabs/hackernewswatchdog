@@ -1,6 +1,7 @@
 import * as logger from "firebase-functions/logger";
 import fetch from "node-fetch";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
+
 import _ from "lodash";
 import { ulid } from "ulid";
 import * as deployment from "./deployment";
@@ -168,7 +169,11 @@ export async function list(user: IUser) {
   return await admin
     .firestore()
     .collection(COLLECTION_CRAWLER)
-    .where(admin.firestore.FieldPath.documentId(), "in", u.watch_list)
+    .where(
+      admin.firestore.FieldPath.documentId(),
+      "in",
+      u.watch_list.map(String)
+    )
     .get()
     .then((s) => s.docs.map((d) => d.data() as ICrawler).map((d) => d.doc));
 }
