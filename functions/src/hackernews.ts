@@ -205,6 +205,11 @@ export async function trackById(docId: number) {
 }
 
 export async function track(crawler: ICrawler) {
+  if (crawler.schedule_attempts >= config.crawler.max_attempts) {
+    // dont reset schedule_id
+    return { crawler, alerts: [] };
+  }
+
   const prev = crawler.doc;
   const next = await get(crawler.doc_id);
 
