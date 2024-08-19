@@ -27,8 +27,8 @@ export async function scan(from: string, to: string, size: number) {
     const ref = admin
       .firestore()
       .collection(COLLECTION_CRAWLER)
-      .where("schedule_id", ">=", from)
-      .where("schedule_id", "<", to)
+      .where("schedule_id", ">", from)
+      .where("schedule_id", "<=", to)
       .orderBy("schedule_id", "asc")
       .limit(size);
     const r = await tx.get(ref);
@@ -55,9 +55,6 @@ export async function scan(from: string, to: string, size: number) {
       }
       tx.set(doc.ref, r.crawler, { merge: true });
     }
-
-    // we are at the last page, set cursor to right cursor
-    if (r.docs.length < size) cursor = to;
 
     return { cursor, count: r.docs.length };
   });
