@@ -2,82 +2,147 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { ParamsOf } from "firebase-functions/lib/common/params";
 import {
-  QueryDocumentSnapshot,
+  DocumentSnapshot,
   FirestoreEvent,
+  Change,
 } from "firebase-functions/v2/firestore";
-
-import { ulid } from "ulid";
+import { ScheduledEvent } from "firebase-functions/v2/scheduler";
+import _ from "lodash";
 import {
+  COLLECTION_SYSTEM,
   COLLECTION_CRAWLER,
   COLLECTION_CRAWLER_TASK,
   ICrawler,
   ICrawlerTask,
+  SystemKey,
+  ISystemCrawler,
 } from "./database";
 import * as utils from "./utils";
-import config from "./config";
 import * as hackernews from "./hackernews";
+import config from "./config";
 
-export async function scan(from: number, to: number): Promise<ICrawlerTask[]> {
+export async function scan(from: string, to: string, size: number) {
   return admin.firestore().runTransaction(async (tx) => {
     const ref = admin
       .firestore()
       .collection(COLLECTION_CRAWLER)
-      .where("schedule_at", ">=", from)
-      .where("schedule_at", "<=", to)
-      .orderBy("schedule_at");
-    const docs = await tx.get(ref);
-    if (docs.empty) return [];
+      .where("schedule_id", ">=", from)
+      .where("schedule_id", "<", to)
+      .orderBy("schedule_id", "asc")
+      .limit(size);
+    const r = await tx.get(ref);
+    // no more task, return right cursor
+    if (r.empty) return to;
 
-    const tasks: ICrawlerTask[] = [];
-    docs.forEach((doc) => {
+    let cursor = "";
+    // countinue scanning
+    for (let doc of r.docs) {
       const crawler = doc.data() as ICrawler;
-      const backsoff = utils.backsoff(
-        crawler.schedule_attempts + 1,
-        config.crawler.factor,
-        config.crawler.random_percentage
+      // update cursor to be last doc
+      cursor = crawler.schedule_id;
+
+      const r = await hackernews.track(crawler).catch(utils.catcher);
+      if (!r) {
+        logger.error(`unable to get doc ${crawler.doc_id}`);
+        continue;
+      }
+      tx.set(doc.ref, r.crawler, { merge: true });
+    }
+
+    // we are at the last page, set cursor to right cursor
+    if (r.docs.length < size) cursor = to;
+
+    return cursor;
+  });
+}
+
+export function onTaskWritten<Document extends string>() {
+  return async function taskWritten(
+    event: FirestoreEvent<
+      Change<DocumentSnapshot> | undefined,
+      ParamsOf<Document>
+    >
+  ) {
+    const task = event.data?.after.data() as ICrawlerTask | undefined;
+    if (!task) {
+      logger.error(`task ${event.params.task_id} is not found`);
+      return;
+    }
+
+    // IMPORTANT: breaking the recursion
+    if (task.finalized_at > 0) {
+      const finalized = new Date(task.finalized_at).toISOString();
+      logger.info(`task ${event.params.task_id} is finalized at ${finalized}`);
+      return;
+    }
+
+    const next = await scan(task.from, task.to, task.size).catch((error) => {
+      logger.error(`${error.message} | ${JSON.stringify(task)}`);
+      task.error = error.message;
+      return "";
+    });
+    // move left cursor to next value
+    if (Boolean(next) && next < task.to) {
+      task.from = next;
+    } else {
+      // got error or no more task
+      task.finalized_at = Date.now();
+    }
+
+    await admin
+      .firestore()
+      .collection(COLLECTION_CRAWLER_TASK)
+      .doc(event.params.task_id)
+      .set(task, { merge: true });
+  };
+}
+export function useSchedule() {
+  return async function schedule(event: ScheduledEvent) {
+    return admin.firestore().runTransaction(async (tx) => {
+      const active = await tx.get(
+        admin
+          .firestore()
+          .collection(COLLECTION_CRAWLER_TASK)
+          .where("finalized_at", "==", 0)
       );
-      const updates: Partial<ICrawler> = {
-        schedule_at: crawler.schedule_at + config.crawler.delay + backsoff,
-        schedule_attempts: crawler.schedule_attempts + 1,
-      };
-      tx.update(doc.ref, updates);
-      const at = new Date(updates.schedule_at as number).toISOString();
-      logger.debug(`crawler scheduled ${doc.id} at ${at}`);
+      if (!active.empty) {
+        logger.warn(`there are ${active.size} active tasks`);
+        return;
+      }
+
+      let system = await tx
+        .get(
+          admin.firestore().collection(COLLECTION_SYSTEM).doc(SystemKey.Crawler)
+        )
+        .then((s) => s.data() as ISystemCrawler);
+      if (!system) {
+        system = {
+          to: utils.getScheduleIdFromtime(new Date(2024, 0, 1).getTime()),
+        };
+      }
+
+      const from = system.to;
+      const to = utils.getScheduleIdFromtime(Date.now());
 
       const task: ICrawlerTask = {
-        id: ulid(),
-        doc_id: crawler.doc_id,
+        id: [from, to, config.crawler.concurrency].map(String).join("_"),
+        from,
+        to,
+        size: config.crawler.concurrency,
         created_at: new Date(),
+        finalized_at: 0,
+        error: "",
       };
       tx.set(
         admin.firestore().collection(COLLECTION_CRAWLER_TASK).doc(task.id),
         task
       );
 
-      tasks.push(task);
+      system.to = task.to;
+      tx.set(
+        admin.firestore().collection(COLLECTION_SYSTEM).doc(SystemKey.Crawler),
+        system
+      );
     });
-
-    return tasks;
-  });
-}
-
-export function onTaskCreated<Document extends string>() {
-  return async function taskCreated(
-    event: FirestoreEvent<QueryDocumentSnapshot | undefined, ParamsOf<Document>>
-  ) {
-    const task = event.data?.data() as ICrawlerTask | undefined;
-    if (!task) {
-      logger.error("crawler task is not found", JSON.stringify(event.params));
-      return;
-    }
-
-    const result = await hackernews
-      .track(task.doc_id)
-      .catch((error) => ({ error: error.message }));
-    await admin
-      .firestore()
-      .collection(COLLECTION_CRAWLER_TASK)
-      .doc(task.id)
-      .update({ result });
   };
 }

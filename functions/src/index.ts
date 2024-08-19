@@ -2,7 +2,7 @@ import "dotenv/config";
 import admin from "firebase-admin";
 import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 
 import * as deployment from "./deployment";
 import * as database from "./database";
@@ -21,18 +21,18 @@ export const api = onRequest(
   server.create()
 );
 
-export const onCrawlerTaskCreated = onDocumentCreated(
-  {
-    region: deployment.FIREBASE_REGION,
-    document: `${database.COLLECTION_CRAWLER_TASK}/{taskId}`,
-  },
-  crawler.onTaskCreated()
-);
-
 export const scheduleAlertSending = onSchedule(
   {
     region: deployment.FIREBASE_REGION,
     schedule: "*/5 * * * *",
   },
-  alert.useScan()
+  alert.useSchedule()
+);
+
+export const onCrawlerTaskWritten = onDocumentWritten(
+  {
+    region: deployment.FIREBASE_REGION,
+    document: `${database.COLLECTION_CRAWLER_TASK}/{task_id}`,
+  },
+  crawler.onTaskWritten()
 );

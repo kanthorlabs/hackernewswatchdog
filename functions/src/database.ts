@@ -1,7 +1,16 @@
+export const COLLECTION_SYSTEM = "system";
 export const COLLECTION_USER = "user";
 export const COLLECTION_CRAWLER = "crawler";
 export const COLLECTION_CRAWLER_TASK = "crawler_task";
 export const COLLECTION_ALERT = "alert";
+
+export enum SystemKey {
+  Crawler = "crawler",
+}
+
+export interface ISystemCrawler {
+  to: string;
+}
 
 export interface IUser {
   id: string;
@@ -40,7 +49,7 @@ export interface ICrawler {
   doc_id: number;
   enqueue_at: number;
   watch_by: string[];
-  schedule_at: number;
+  schedule_id: string;
   schedule_attempts: number;
 
   doc: IDocument;
@@ -49,8 +58,12 @@ export interface ICrawler {
 
 export interface ICrawlerTask {
   id: string;
-  doc_id: number;
+  from: string;
+  to: string;
+  size: number;
   created_at: Date;
+  finalized_at: number;
+  error: string;
 }
 
 export interface IDocumentDiff {

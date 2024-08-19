@@ -16,6 +16,7 @@ import {
   COLLECTION_ALERT,
 } from "./database";
 import config from "./config";
+import * as utils from "./utils";
 
 export function parse(text: string): number {
   // number
@@ -103,7 +104,9 @@ export async function watch(user: IUser, doc: IDocument) {
       c = {
         doc_id: doc.id,
         enqueue_at: Date.now(),
-        schedule_at: Date.now() + config.crawler.delay,
+        schedule_id: utils.getScheduleIdFromtime(
+          Date.now() + config.crawler.delay
+        ),
         watch_by: [],
         schedule_attempts: 0,
         doc,
@@ -134,7 +137,9 @@ export async function unwatch(user: IUser, doc: IDocument) {
         doc_id: doc.id,
         enqueue_at: Date.now(),
         watch_by: [],
-        schedule_at: Date.now() + config.crawler.delay,
+        schedule_id: utils.getScheduleIdFromtime(
+          Date.now() + config.crawler.delay
+        ),
         schedule_attempts: 0,
         doc,
         diff: { ts: new Date() },
@@ -143,7 +148,7 @@ export async function unwatch(user: IUser, doc: IDocument) {
     c.watch_by = c.watch_by.filter((d) => d !== user.id);
     // no watcher, disable schedule
     if (c.watch_by.length === 0) {
-      c.schedule_at = -1;
+      c.schedule_id = "";
     }
 
     tx.set(uref, u, { merge: true });
@@ -168,52 +173,66 @@ export async function list(user: IUser) {
     .then((s) => s.docs.map((d) => d.data() as ICrawler).map((d) => d.doc));
 }
 
-export async function track(docId: number) {
+export async function trackById(docId: number) {
   return admin.firestore().runTransaction(async (tx) => {
-    const cref = admin
+    const ref = admin
       .firestore()
       .collection(COLLECTION_CRAWLER)
       .doc(String(docId));
-    let crawler = await tx.get(cref).then((s) => s.data() as ICrawler);
+    let crawler = await tx.get(ref).then((s) => s.data() as ICrawler);
     if (!crawler) {
       logger.error(`crawler with doc #${docId} is not found`);
       return null;
     }
 
-    const prev = crawler.doc;
-    const next = await get(crawler.doc_id);
+    const r = await track(crawler);
 
-    // update latest doc
-    crawler.doc = next;
-    // update diff
-    crawler.diff = diff(prev, next);
-    tx.set(cref, crawler, { merge: true });
-
-    let alerts: IAlert[] = [];
-    if (crawler.watch_by.length > 0 && hasDiff(crawler.diff)) {
-      alerts = crawler.watch_by.map(
-        (uid) =>
-          ({
-            id: ulid(),
-            doc_id: crawler.doc_id,
-            uid,
-            diff: crawler.diff,
-            created_at: new Date(),
-            text: toAlert(crawler.doc, crawler.diff).join("\n"),
-            delivered_at: 0,
-          } as IAlert)
+    tx.set(ref, r.crawler, { merge: true });
+    for (let alert of r.alerts) {
+      tx.set(
+        admin.firestore().collection(COLLECTION_ALERT).doc(alert.id),
+        alert
       );
-
-      for (let alert of alerts) {
-        tx.set(
-          admin.firestore().collection(COLLECTION_ALERT).doc(alert.id),
-          alert
-        );
-      }
     }
 
-    return { crawler, alerts };
+    return r;
   });
+}
+
+export async function track(crawler: ICrawler) {
+  const prev = crawler.doc;
+  const next = await get(crawler.doc_id);
+
+  // update latest doc
+  crawler.doc = next;
+  // update diff
+  crawler.diff = diff(prev, next);
+
+  const backsoff = utils.backsoff(
+    crawler.schedule_attempts + 1,
+    config.crawler.factor,
+    config.crawler.random_percentage
+  );
+  crawler.schedule_id = utils.genNextScheduleId(crawler.schedule_id, backsoff);
+  crawler.schedule_attempts = crawler.schedule_attempts + 1;
+
+  let alerts: IAlert[] = [];
+  if (hasDiff(crawler.diff)) {
+    alerts = crawler.watch_by.map(
+      (uid) =>
+        ({
+          id: ulid(),
+          doc_id: crawler.doc_id,
+          uid,
+          diff: crawler.diff,
+          created_at: new Date(),
+          text: toAlert(crawler.doc, crawler.diff).join("\n"),
+          delivered_at: 0,
+        } as IAlert)
+    );
+  }
+
+  return { crawler, alerts };
 }
 
 export function diff(prev: IDocument, next: IDocument): IDocumentDiff {

@@ -11,8 +11,8 @@ export async function send(alert: IAlert) {
   });
 }
 
-export function useScan() {
-  return async function scan(event: ScheduledEvent) {
+export function useSchedule() {
+  return async function schedule(event: ScheduledEvent) {
     const alerts = await admin
       .firestore()
       .collection(COLLECTION_ALERT)
