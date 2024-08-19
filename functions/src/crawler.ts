@@ -72,7 +72,7 @@ export function onTaskWritten<Document extends string>() {
   ) {
     const task = event.data?.after.data() as ICrawlerTask | undefined;
     if (!task) {
-      logger.error(`[${event.type}] task ${event.params.task_id} is not found`);
+      logger.error(`[${event.type}] task ${event.params.task_id} is deleted`);
       return;
     }
 
