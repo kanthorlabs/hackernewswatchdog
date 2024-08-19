@@ -24,7 +24,7 @@ export const api = onRequest(
 export const scheduleAlertSending = onSchedule(
   {
     region: deployment.FIREBASE_REGION,
-    schedule: "* * * * *",
+    schedule: "*/5 * * * *",
     retryCount: 0,
     concurrency: 1,
   },
@@ -34,7 +34,7 @@ export const scheduleAlertSending = onSchedule(
 export const scheduleCrawlerTask = onSchedule(
   {
     region: deployment.FIREBASE_REGION,
-    schedule: "* * * * *",
+    schedule: "*/5 * * * *",
     retryCount: 0,
     concurrency: 1,
   },
