@@ -1,12 +1,9 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import { ParamsOf } from "firebase-functions/lib/common/params";
-import {
-  QueryDocumentSnapshot,
-  FirestoreEvent,
-} from "firebase-functions/v2/firestore";
+import { ScheduledEvent } from "firebase-functions/v2/scheduler";
 import { COLLECTION_ALERT, IAlert } from "./database";
 import bot from "./bots/telegram";
+import config from "./config";
 
 export async function send(alert: IAlert) {
   return bot.telegram.sendMessage(alert.uid, alert.text, {
@@ -14,20 +11,31 @@ export async function send(alert: IAlert) {
   });
 }
 
-export function onCreated<Document extends string>() {
-  return async function taskCreated(
-    event: FirestoreEvent<QueryDocumentSnapshot | undefined, ParamsOf<Document>>
-  ) {
-    const alert = event.data?.data() as IAlert | undefined;
-    if (!alert) {
-      logger.error("crawler task is not found", JSON.stringify(event.params));
-      return;
-    }
-    const result = await send(alert).catch((error) => ({ error }));
-    await admin
+export function useScan() {
+  return async function scan(event: ScheduledEvent) {
+    const alerts = await admin
       .firestore()
       .collection(COLLECTION_ALERT)
-      .doc(alert.id)
-      .update({ result });
+      .where("delivered_at", "==", 0)
+      .limit(config.alert.concurrency)
+      .get();
+    if (alerts.empty) {
+      return;
+    }
+
+    const docs = alerts.docs.map((doc) => doc.data() as IAlert);
+    const promises = docs.map((d) =>
+      send(d).catch((error) => ({ error: error.message }))
+    );
+    const results = await Promise.all(promises);
+
+    const batch = admin.firestore().batch();
+    docs.forEach((d, i) => {
+      const ref = admin.firestore().collection(COLLECTION_ALERT).doc(d.id);
+      batch.update(ref, { delivered_at: Date.now, result: results[i] });
+    });
+    await batch.commit();
+
+    logger.info(`sent ${results.length} alerts`);
   };
 }

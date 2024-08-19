@@ -200,6 +200,7 @@ export async function track(docId: number) {
             diff: crawler.diff,
             created_at: new Date(),
             text: toAlert(crawler.doc, crawler.diff).join("\n"),
+            delivered_at: 0,
           } as IAlert)
       );
 

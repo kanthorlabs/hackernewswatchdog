@@ -69,6 +69,7 @@ export interface IAlert {
   uid: string;
   diff: IDocumentDiff;
   created_at: Date;
-
   text: string;
+
+  delivered_at: number;
 }

@@ -5,4 +5,7 @@ export default {
     random_percentage: Number(process.env.CRALWER_RANDOM_PERCENTAGE) || 10,
     max_attempts: Number(process.env.CRALWER_MAX_ATTEMPTS) || 5,
   },
+  alert: {
+    concurrency: Number(process.env.ALERT_CONCURRENCY) || 10,
+  },
 };

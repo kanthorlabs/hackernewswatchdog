@@ -1,6 +1,7 @@
 import "dotenv/config";
 import admin from "firebase-admin";
 import { onRequest } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
 import * as deployment from "./deployment";
@@ -28,11 +29,10 @@ export const onCrawlerTaskCreated = onDocumentCreated(
   crawler.onTaskCreated()
 );
 
-export const onAlertCreated = onDocumentCreated(
+export const scheduleAlertSending = onSchedule(
   {
     region: deployment.FIREBASE_REGION,
-    document: `${database.COLLECTION_ALERT}/{alertId}`,
+    schedule: "*/5 * * * *",
   },
-
-  alert.onCreated()
+  alert.useScan()
 );

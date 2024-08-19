@@ -73,7 +73,7 @@ export function onTaskCreated<Document extends string>() {
 
     const result = await hackernews
       .track(task.doc_id)
-      .catch((error) => ({ error }));
+      .catch((error) => ({ error: error.message }));
     await admin
       .firestore()
       .collection(COLLECTION_CRAWLER_TASK)
