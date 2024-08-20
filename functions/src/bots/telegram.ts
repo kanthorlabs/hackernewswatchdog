@@ -26,6 +26,9 @@ const MESSAGES = {
     `🚫 /unwatchall - Stop watching all threads or comments you are currently watching.`,
     `🔍 /list - Show the list of threads or comments you're currently watching.`,
     `🔍 /update - Get updates on all threads or comments if there have been any changes.`,
+    `💡 Example:`,
+    `- Use a link: \`/watch https://news.ycombinator.com/item?id=41284703\``,
+    `- Use a ID: \`/watch 41284703\``,
   ],
 };
 
