@@ -54,12 +54,8 @@ export function toView(doc: IDocument, counter?: number): string[] {
   }
   if (doc.title) messages.push(`📝 *Title:* ${doc.title}`);
   if (doc.url) messages.push(`🔗 *URL:* ${doc.url}`);
-  messages.push(
-    `🆔 *ID:* [${doc.id}](https://news.ycombinator.com/item?id=${doc.id})`
-  );
-  messages.push(
-    `👤 *Author:* [${doc.by}](https://news.ycombinator.com/user?id=${doc.by})`
-  );
+  messages.push(`🆔 *ID:* [${doc.id}](${toItemLink(doc.id)})`);
+  messages.push(`👤 *Author:* [${doc.by}](${toUserLink(doc.by)})`);
   const time = new Date(doc.time * 1000).toISOString(); // Convert Unix timestamp to human-readable format
   messages.push(`🕒 *Posted at:* ${time}`);
 
@@ -69,6 +65,16 @@ export function toView(doc: IDocument, counter?: number): string[] {
   if (Number.isSafeInteger(doc.descendants)) {
     messages.push(`💬 *Comments:* ${doc.descendants}`);
   }
+  return messages;
+}
+
+export function toShortView(doc: IDocument): string[] {
+  const messages: string[] = [];
+
+  const emoji = type2emoji(doc.type);
+  messages.push(`${emoji} *Type*: ${doc.type}`);
+  if (doc.title) messages.push(`📝 *Title:* ${doc.title}`);
+  messages.push(`👤 *Author:* [${doc.by}](${toUserLink(doc.by)})`);
   return messages;
 }
 
@@ -179,7 +185,7 @@ export async function list(user: IUser) {
       u.watch_list.map(String)
     )
     .get()
-    .then((s) => s.docs.map((d) => d.data() as ICrawler).map((d) => d.doc));
+    .then((s) => s.docs.map((d) => d.data() as ICrawler));
 }
 
 export async function trackById(docId: number) {
@@ -279,15 +285,13 @@ export function hasDiff(diff: IDocumentDiff): boolean {
 
 export function toAlert(doc: IDocument, diff?: IDocumentDiff): string[] {
   const messages: string[] = [
-    `🚨 [${doc.id}](https://news.ycombinator.com/item?id=${doc.id}) has been updated.🚨\n`,
+    `🚨 [${doc.id}](${toItemLink(doc.id)}) has been updated.🚨\n`,
   ];
 
   const emoji = type2emoji(doc.type);
   messages.push(`${emoji} *Type*: ${doc.type}`);
   if (doc.title) messages.push(`📝 *Title:* ${doc.title}`);
-  messages.push(
-    `👤 *Author:* [${doc.by}](https://news.ycombinator.com/user?id=${doc.by})`
-  );
+  messages.push(`👤 *Author:* [${doc.by}](${toUserLink(doc.by)})`);
   const time = new Date(doc.time * 1000).toISOString(); // Convert Unix timestamp to human-readable format
   messages.push(`🕒 *Posted at:* ${time}`);
 
@@ -305,4 +309,12 @@ export function toAlert(doc: IDocument, diff?: IDocumentDiff): string[] {
   }
 
   return messages;
+}
+
+export function toUserLink(username: string): string {
+  return `https://news.ycombinator.com/user?id=${username}`;
+}
+
+export function toItemLink(id: number): string {
+  return `https://news.ycombinator.com/item?id=${id}`;
 }

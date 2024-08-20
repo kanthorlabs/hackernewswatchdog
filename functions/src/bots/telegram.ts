@@ -1,4 +1,5 @@
 import { Telegraf } from "telegraf";
+import { message } from "telegraf/filters";
 import * as logger from "firebase-functions/logger";
 import { User as TelegrafUser } from "telegraf/types";
 import _ from "lodash";
@@ -20,7 +21,9 @@ const MESSAGES = {
     `Here’s what you can do:`,
     `👁️ /watch - Start watching a specific thread or comment for new replies.`,
     `🚫 /unwatch - Stop watching a thread or comment.`,
+    `🚫 /unwatchall - Stop watching all threads or comments you are currently watching.`,
     `🔍 /list - Show the list of threads or comments you're currently watching.`,
+    `🔍 /update - Get updates on all threads or comments if there have been any changes.`,
   ],
 };
 
@@ -29,7 +32,7 @@ bot.use((ctx, next) => {
     !ctx.chat?.type ||
     !config.limits.bot_enabled_chat_types.includes(ctx.chat.type)
   ) {
-    return ctx.reply(
+    return ctx.replyWithMarkdown(
       `🚫 *This command is only available in [${config.limits.bot_enabled_chat_types}] chat.* Please send me a message directly to use it.`
     );
   }
@@ -37,27 +40,26 @@ bot.use((ctx, next) => {
 });
 
 bot.start(async (ctx) => {
-  await ctx.reply(
-    MESSAGES.START.join("\n") + "\n\n---------\n\n" + MESSAGES.HELP.join("\n"),
-    {
-      parse_mode: "Markdown",
-    }
+  await ctx.replyWithMarkdown(
+    MESSAGES.START.join("\n") + "---------" + MESSAGES.HELP.join("\n")
   );
 });
 
 bot.command("help", async (ctx) => {
-  await ctx.reply(MESSAGES.HELP.join("\n"), { parse_mode: "Markdown" });
+  await ctx.replyWithMarkdown(MESSAGES.HELP.join("\n"));
 });
 
 bot.command("watch", async (ctx) => {
   const id = hackernews.parse(ctx.message.text);
   if (!id) {
-    await ctx.reply("⚠️ We could not parse the id of the thread or comment.");
+    await ctx.replyWithMarkdown(
+      "⚠️ We could not parse the id of the thread or comment."
+    );
     return;
   }
   const doc = await hackernews.get(id).catch(utils.catcher);
   if (!doc) {
-    await ctx.reply("⚠️ We could not find the thread or comment.");
+    await ctx.replyWithMarkdown("⚠️ We could not find the thread or comment.");
     return;
   }
   const user = toUser(ctx.message.from);
@@ -72,13 +74,12 @@ bot.command("watch", async (ctx) => {
       return "Unknown error occurred.";
     });
   if (!!err) {
-    await ctx.reply(
+    await ctx.replyWithMarkdown(
       [
         "⚠️ We could not start watching this thread or comment because of the following error:",
         "---------",
         err,
-      ].join("\n"),
-      { parse_mode: "Markdown" }
+      ].join("\n")
     );
     return;
   }
@@ -88,7 +89,7 @@ bot.command("watch", async (ctx) => {
     ...hackernews.toView(doc),
   ];
   try {
-    await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+    await ctx.replyWithMarkdown(messages.join("\n"));
   } catch (err: any) {
     await ctx.reply(
       `We were unable to produce messages for you due to invalid characters.`
@@ -123,7 +124,7 @@ bot.command("unwatch", async (ctx) => {
     `🚫 You have stopped watching the following *${_.startCase(doc.type)}*\n`,
     ...hackernews.toView(doc),
   ];
-  await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  await ctx.replyWithMarkdown(messages.join("\n"));
 });
 
 bot.command("list", async (ctx) => {
@@ -131,6 +132,7 @@ bot.command("list", async (ctx) => {
 
   const docs: database.IDocument[] | null = await hackernews
     .list(user)
+    .then((docs) => docs.map((d) => d.doc))
     .catch(utils.catcher);
   if (!docs) {
     await ctx.reply(
@@ -156,12 +158,98 @@ bot.command("list", async (ctx) => {
   ];
 
   try {
-    await ctx.reply(messages.join("\n---------\n"), { parse_mode: "Markdown" });
+    await ctx.replyWithMarkdown(messages.join("---------"));
   } catch (err: any) {
-    await ctx.reply(
+    await ctx.replyWithMarkdown(
       `We found ${docs.length} but were unable to produce messages for you due to invalid characters.`
     );
     logger.error(`${err.message} | ${messages.join("\n")}`);
+  }
+});
+
+bot.command("update", async (ctx) => {
+  const user = toUser(ctx.message.from);
+  await ctx.reply("🔎 Getting your list of threads or comments...");
+
+  const crawlers = await hackernews.list(user).catch(utils.catcher);
+  if (!crawlers) {
+    await ctx.reply(
+      "⚠️ We could not get the list of threads or comments you're watching."
+    );
+    return;
+  }
+
+  await ctx.reply(
+    `🔎 Found ${crawlers.length} threads or comments you're watching.`
+  );
+  for (let crawler of crawlers) {
+    const item = `[#${crawler.doc_id}](${hackernews.toItemLink(
+      crawler.doc_id
+    )})`;
+
+    const r = await hackernews.track(crawler).catch(utils.catcher);
+    if (!r) {
+      await ctx.replyWithMarkdown(
+        `⚠️ We could not update the thread or comment ${item}.`
+      );
+      return;
+    }
+
+    const alert = r.alerts.find((a) => a.uid === user.id);
+    if (alert) {
+      await ctx.replyWithMarkdown(alert.text);
+      continue;
+    }
+
+    const messages = [
+      `✅ The thread or comment ${item} is up to date.`,
+      "---------",
+      ...hackernews.toView(r.crawler.doc),
+    ];
+    await ctx.replyWithMarkdown(messages.join("\n"));
+  }
+});
+
+bot.command("unwatchall", async (ctx) => {
+  const user = toUser(ctx.message.from);
+  await ctx.reply("🔎 Getting your list of threads or comments...");
+
+  const crawlers = await hackernews.list(user).catch(utils.catcher);
+  if (!crawlers) {
+    await ctx.reply(
+      "⚠️ We could not get the list of threads or comments you're watching."
+    );
+    return;
+  }
+
+  await ctx.reply(
+    `🔎 Found ${crawlers.length} threads or comments you're watching. Please wait for awhile to process your request...`
+  );
+  for (let crawler of crawlers) {
+    const ok = await hackernews
+      .unwatch(user, crawler.doc)
+      .then(() => true)
+      .catch(utils.catcher);
+    if (!ok) {
+      await ctx.reply(
+        `⚠️ We could not stop watching the thread or comment #${crawler.doc_id}.`
+      );
+      return;
+    }
+
+    const messages = [
+      `🚫 You have stopped watching a *${_.startCase(crawler.doc.type)}*\n`,
+      ...hackernews.toShortView(crawler.doc),
+    ];
+    await ctx.replyWithMarkdown(messages.join("\n"));
+  }
+});
+
+bot.on(message("text"), (ctx) => {
+  if (ctx.message.text.startsWith("/")) {
+    ctx.replyWithMarkdown(
+      "❌ Unknown command. Type /help to see the list of available commands."
+    );
   }
 });
 
