@@ -28,7 +28,7 @@ const MESSAGES = {
     `🔍 /update - Get updates on all threads or comments if there have been any changes.`,
     `💡 Example:`,
     `- Use a link: \`/watch https://news.ycombinator.com/item?id=41284703\``,
-    `- Use a ID: \`/watch 41284703\``,
+    `- Use a ID: \`/watch 41277014\``,
   ],
 };
 
