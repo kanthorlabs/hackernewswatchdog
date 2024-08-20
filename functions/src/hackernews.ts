@@ -119,6 +119,8 @@ export async function watch(user: IUser, doc: IDocument) {
       };
     }
     if (!c.watch_by.includes(user.id)) c.watch_by.push(user.id);
+    // make sure we always reset schedule_id, so unwatch items can be watched again
+    c.schedule_id = Date.now() + config.crawler.delay;
 
     tx.set(uref, u, { merge: true });
     tx.set(cref, c, { merge: true });
