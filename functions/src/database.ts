@@ -6,6 +6,7 @@ export const COLLECTION_ALERT = "alert";
 
 export enum SystemKey {
   Crawler = "crawler",
+  Statistics = "statistics",
 }
 
 export interface ISystemCrawler {
@@ -61,7 +62,7 @@ export interface ICrawlerTask {
   from: string;
   to: string;
   size: number;
-  created_at: Date;
+  created_at: number;
   finalized_at: number;
   item_count: number;
   error: string;
@@ -86,4 +87,11 @@ export interface IAlert {
   text: string;
 
   delivered_at: number;
+}
+
+export interface IStatistics {
+  user_count: number;
+  crawler_count: number;
+  alert_count: number;
+  crawler_task_count: number;
 }

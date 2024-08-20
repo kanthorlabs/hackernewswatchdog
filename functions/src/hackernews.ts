@@ -220,8 +220,8 @@ export async function track(crawler: ICrawler) {
 
   const backsoff = utils.backsoff(
     crawler.schedule_attempts + 1,
-    config.crawler.factor,
-    config.crawler.random_percentage
+    config.crawler.backoff_factor,
+    config.crawler.backoff_random_percentage
   );
   crawler.schedule_id = utils.genNextScheduleId(crawler.schedule_id, backsoff);
   crawler.schedule_attempts = crawler.schedule_attempts + 1;

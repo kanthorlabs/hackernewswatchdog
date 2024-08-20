@@ -101,6 +101,7 @@ export function onTaskWritten<Document extends string>() {
       .set(task, { merge: true });
   };
 }
+
 export function useSchedule() {
   return async function schedule(event: ScheduledEvent) {
     logger.debug("scheduled at", event.scheduleTime);
@@ -136,7 +137,7 @@ export function useSchedule() {
         from,
         to,
         size: config.crawler.schedule_size,
-        created_at: new Date(),
+        created_at: Date.now(),
         finalized_at: 0,
         item_count: 0,
         error: "",
