@@ -11,6 +11,12 @@ export default {
     schedule_size: Number(process.env.ALERT_SCHEDULE_SIZE) || 10,
   },
   limits: {
+    bot_enabled_chat_types: (
+      process.env.LIMITS_BOT_ENABLED_CHAT_TYPES || "private"
+    )
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
     max_watch_items: Number(process.env.LIMITS_MAX_WATCH_ITEMS) || 10,
   },
 };

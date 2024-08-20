@@ -6,8 +6,21 @@ import * as deployment from "../deployment";
 import * as database from "../database";
 import * as hackernews from "../hackernews";
 import * as utils from "../utils";
+import config from "../config";
 
 const bot = new Telegraf(deployment.BOTS_TELEGRAM_TOKEN);
+
+bot.use((ctx, next) => {
+  if (
+    !ctx.chat?.type ||
+    !config.limits.bot_enabled_chat_types.includes(ctx.chat.type)
+  ) {
+    return ctx.reply(
+      `🚫 *This command is only available in [${config.limits.bot_enabled_chat_types}] chat.* Please send me a message directly to use it.`
+    );
+  }
+  return next();
+});
 
 bot.start(async (ctx) => {
   const messages = [
@@ -20,6 +33,13 @@ bot.start(async (ctx) => {
 });
 
 bot.command("help", async (ctx) => {
+  if (ctx.chat.type !== "private") {
+    ctx.reply(
+      `🚫 *This command is only available in private chat.* Please send me a message directly to use it.`
+    );
+    return;
+  }
+
   const messages = [
     `✨ *Hacker News WatchDog Bot - Commands* ✨\n`,
     `Here’s what you can do:\n`,
