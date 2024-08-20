@@ -98,7 +98,7 @@ export async function watch(user: IUser, doc: IDocument) {
 
     if (u.watch_list.length > config.limits.max_watch_items) {
       throw new Error(
-        `ERROR: Each user can only watch ${config.limits.max_watch_items} items.`
+        `ERROR: Each user can only watch *${config.limits.max_watch_items}* items. You need to call /unwatch on an item before calling /watch again.`
       );
     }
 
