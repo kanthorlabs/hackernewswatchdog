@@ -44,12 +44,23 @@ bot.command("watch", async (ctx) => {
   }
   const user = toUser(ctx.message.from);
 
-  const ok = await hackernews
+  const err = await hackernews
     .watch(user, doc)
-    .then(() => true)
-    .catch(utils.catcher);
-  if (!ok) {
-    await ctx.reply("⚠️ We could not start watching this thread or comment.");
+    .then(() => "")
+    .catch((err) => {
+      if (err.message.startsWith("ERROR:")) {
+        return err.message.replace("ERROR: ", "");
+      }
+      return "Unknown error occurred.";
+    });
+  if (!!err) {
+    await ctx.reply(
+      [
+        "⚠️ We could not start watching this thread or comment because of the following error:",
+        "---------",
+        err,
+      ].join("\n")
+    );
     return;
   }
 

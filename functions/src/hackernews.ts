@@ -96,6 +96,12 @@ export async function watch(user: IUser, doc: IDocument) {
     if (!u) u = { ...user };
     if (!u.watch_list.includes(doc.id)) u.watch_list.push(doc.id);
 
+    if (u.watch_list.length > config.limits.max_watch_items) {
+      throw new Error(
+        `ERROR: Each user can only watch ${config.limits.max_watch_items} items.`
+      );
+    }
+
     const cref = admin
       .firestore()
       .collection(COLLECTION_CRAWLER)
