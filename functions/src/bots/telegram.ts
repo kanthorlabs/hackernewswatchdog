@@ -9,6 +9,20 @@ import * as utils from "../utils";
 import config from "../config";
 
 const bot = new Telegraf(deployment.BOTS_TELEGRAM_TOKEN);
+const MESSAGES = {
+  START: [
+    "🌟 Welcome to the *Hacker News WatchDog Bot*! 🐾",
+    "🔔 Stay on top of the latest discussions with real-time notifications whenever new comments are posted on your favorite Hacker News threads.",
+    "💬 Type /help to explore all the available commands and features!",
+  ],
+  HELP: [
+    `✨ *Hacker News WatchDog Bot - Commands* ✨\n`,
+    `Here’s what you can do:\n`,
+    `👁️ /watch - Start watching a specific thread or comment for new replies.`,
+    `🚫 /unwatch - Stop watching a thread or comment.`,
+    `🔍 /list - Show the list of threads or comments you're currently watching.`,
+  ],
+};
 
 bot.use((ctx, next) => {
   if (
@@ -23,32 +37,13 @@ bot.use((ctx, next) => {
 });
 
 bot.start(async (ctx) => {
-  const messages = [
-    "🌟 Welcome to the *Hacker News WatchDog Bot*! 🐾",
-    "🔔 Stay on top of the latest discussions with real-time notifications whenever new comments are posted on your favorite Hacker News threads.",
-    "💬 Type /help to explore all the available commands and features!",
-  ];
-
-  await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  await ctx.reply(MESSAGES.START.join("\n") + "\n" + MESSAGES.HELP.join("\n"), {
+    parse_mode: "Markdown",
+  });
 });
 
 bot.command("help", async (ctx) => {
-  if (ctx.chat.type !== "private") {
-    ctx.reply(
-      `🚫 *This command is only available in private chat.* Please send me a message directly to use it.`
-    );
-    return;
-  }
-
-  const messages = [
-    `✨ *Hacker News WatchDog Bot - Commands* ✨\n`,
-    `Here’s what you can do:\n`,
-    `👁️ /watch - Start watching a specific thread or comment for new replies.`,
-    `🚫 /unwatch - Stop watching a thread or comment.`,
-    `🔍 /list - Show the list of threads or comments you're currently watching.`,
-  ];
-
-  await ctx.reply(messages.join("\n"), { parse_mode: "Markdown" });
+  await ctx.reply(MESSAGES.HELP.join("\n"), { parse_mode: "Markdown" });
 });
 
 bot.command("watch", async (ctx) => {
