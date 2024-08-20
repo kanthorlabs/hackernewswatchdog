@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 const Telegram = require("telegraf").Telegraf;
 
 main()
@@ -15,7 +16,7 @@ async function main() {
 
   const bot = new Telegram(process.env.BOTS_TELEGRAM_TOKEN);
   const webhookUrl = new URL(process.env.BOTS_TELEGRAM_WEBHOOK_ENDPOINT);
-  webhookUrl.pathname += "/webhook/telegram";
+  webhookUrl.pathname = path.join(webhookUrl.pathname, "webhook/telegram");
   webhookUrl.searchParams.set(
     "authorization",
     process.env.BOTS_AUTHENTICATION_TOKEN
