@@ -10,7 +10,7 @@ export enum SystemKey {
 }
 
 export interface ISystemCrawler {
-  to: string;
+  to: number;
 }
 
 export interface IUser {
@@ -50,7 +50,7 @@ export interface ICrawler {
   doc_id: number;
   enqueue_at: number;
   watch_by: string[];
-  schedule_id: string;
+  schedule_id: number;
   schedule_attempts: number;
 
   doc: IDocument;
@@ -59,8 +59,8 @@ export interface ICrawler {
 
 export interface ICrawlerTask {
   id: string;
-  from: string;
-  to: string;
+  from: number;
+  to: number;
   size: number;
   created_at: number;
   finalized_at: number;

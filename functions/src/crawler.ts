@@ -22,7 +22,7 @@ import * as utils from "./utils";
 import * as hackernews from "./hackernews";
 import config from "./config";
 
-export async function scan(from: string, to: string, size: number) {
+export async function scan(from: number, to: number, size: number) {
   return admin.firestore().runTransaction(async (tx) => {
     const ref = admin
       .firestore()
@@ -35,7 +35,7 @@ export async function scan(from: string, to: string, size: number) {
     // no more task, return right cursor
     if (r.empty) return { cursor: to, count: 0 };
 
-    let cursor = "";
+    let cursor = 0;
     // countinue scanning
     for (let doc of r.docs) {
       const crawler = doc.data() as ICrawler;
@@ -83,7 +83,7 @@ export function onTaskWritten<Document extends string>() {
     const r = await scan(task.from, task.to, task.size).catch((error) => {
       logger.error(`${error.message} | ${JSON.stringify(task)}`);
       task.error = error.message;
-      return { cursor: "", count: 0 };
+      return { cursor: 0, count: 0 };
     });
     task.item_count += r.count;
     // move left cursor to next value
@@ -124,13 +124,11 @@ export function useSchedule() {
         )
         .then((s) => s.data() as ISystemCrawler);
       if (!system) {
-        system = {
-          to: utils.getScheduleIdFromtime(new Date(2024, 0, 1).getTime()),
-        };
+        system = { to: new Date(2024, 1, 1).getTime() };
       }
 
       const from = system.to;
-      const to = utils.getScheduleIdFromtime(Date.now());
+      const to = Date.now();
 
       const task: ICrawlerTask = {
         id: [from, to, config.crawler.schedule_size].map(String).join("_"),

@@ -111,9 +111,7 @@ export async function watch(user: IUser, doc: IDocument) {
       c = {
         doc_id: doc.id,
         enqueue_at: Date.now(),
-        schedule_id: utils.getScheduleIdFromtime(
-          Date.now() + config.crawler.delay
-        ),
+        schedule_id: Date.now() + config.crawler.delay,
         watch_by: [],
         schedule_attempts: 0,
         doc,
@@ -144,9 +142,7 @@ export async function unwatch(user: IUser, doc: IDocument) {
         doc_id: doc.id,
         enqueue_at: Date.now(),
         watch_by: [],
-        schedule_id: utils.getScheduleIdFromtime(
-          Date.now() + config.crawler.delay
-        ),
+        schedule_id: Date.now() + config.crawler.delay,
         schedule_attempts: 0,
         doc,
         diff: { ts: new Date() },
@@ -155,7 +151,7 @@ export async function unwatch(user: IUser, doc: IDocument) {
     c.watch_by = c.watch_by.filter((d) => d !== user.id);
     // no watcher, disable schedule
     if (c.watch_by.length === 0) {
-      c.schedule_id = "";
+      c.schedule_id = 0;
     }
 
     tx.set(uref, u, { merge: true });
@@ -229,7 +225,7 @@ export async function track(crawler: ICrawler) {
     config.crawler.backoff_factor,
     config.crawler.backoff_random_percentage
   );
-  crawler.schedule_id = utils.genNextScheduleId(crawler.schedule_id, backsoff);
+  crawler.schedule_id = crawler.schedule_id + backsoff;
   crawler.schedule_attempts = crawler.schedule_attempts + 1;
 
   let alerts: IAlert[] = [];

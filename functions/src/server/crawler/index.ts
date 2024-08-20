@@ -9,11 +9,8 @@ import * as utils from "../../utils";
 const router = Router();
 
 router.get("/scanner", async function get(req, res) {
-  const from =
-    String(req.query.from || "") ||
-    utils.getScheduleIdFromtime(Date.now() - 3600 * 1000);
-  const to =
-    String(req.query.to || "") || utils.getScheduleIdFromtime(Date.now());
+  const from = Number(req.query.from || "") || Date.now() - 3600 * 1000;
+  const to = Number(req.query.to || "") || Date.now();
   const size = Number(req.query.size || 1000);
 
   const next = await crawler.scan(from, to, size).catch(utils.catcher);
