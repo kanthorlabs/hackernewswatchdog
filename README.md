@@ -16,6 +16,13 @@ Or you can check the demo video
 
 ## Usage
 
+Available commands:
+
+- 👁️ `/watch` - Start watching a specific thread or comment for new replies.
+- 🚫 `/unwatch` - Stop watching a thread or comment.
+- 🔍 `/list` - Show the list of threads or comments you're currently watching.
+- 📈 `/update` - Get updates on all threads or comments if there have been any changes.
+
 We are supporting two kind of entities to get updates: a thread or a comment.
 
 - Use a link: `/watch https://news.ycombinator.com/item?id=41284703`
