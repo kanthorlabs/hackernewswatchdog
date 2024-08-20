@@ -3,6 +3,7 @@ export const COLLECTION_USER = "user";
 export const COLLECTION_CRAWLER = "crawler";
 export const COLLECTION_CRAWLER_TASK = "crawler_task";
 export const COLLECTION_ALERT = "alert";
+export const COLLECTION_RATELIMIT = "ratelimit";
 
 export enum SystemKey {
   Crawler = "crawler",
@@ -94,4 +95,8 @@ export interface IStatistics {
   crawler_count: number;
   alert_count: number;
   crawler_task_count: number;
+}
+
+export interface IRatelimit {
+  [name: string]: number;
 }

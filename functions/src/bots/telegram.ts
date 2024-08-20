@@ -3,6 +3,8 @@ import { message } from "telegraf/filters";
 import * as logger from "firebase-functions/logger";
 import { User as TelegrafUser } from "telegraf/types";
 import _ from "lodash";
+import admin from "firebase-admin";
+import prettyms from "pretty-ms";
 import * as deployment from "../deployment";
 import * as database from "../database";
 import * as hackernews from "../hackernews";
@@ -41,7 +43,7 @@ bot.use((ctx, next) => {
 
 bot.start(async (ctx) => {
   await ctx.replyWithMarkdown(
-    MESSAGES.START.join("\n") + "---------" + MESSAGES.HELP.join("\n")
+    MESSAGES.START.join("\n") + "\n---------\n" + MESSAGES.HELP.join("\n")
   );
 });
 
@@ -85,7 +87,8 @@ bot.command("watch", async (ctx) => {
   }
 
   const messages = [
-    `🔔 You are now watching a *${_.startCase(doc.type)}*\n`,
+    `🔔 You are now watching a *${_.startCase(doc.type)}*`,
+    "---------",
     ...hackernews.toView(doc),
   ];
   try {
@@ -158,7 +161,7 @@ bot.command("list", async (ctx) => {
   ];
 
   try {
-    await ctx.replyWithMarkdown(messages.join("---------"));
+    await ctx.replyWithMarkdown(messages.join("\n---------\n"));
   } catch (err: any) {
     await ctx.replyWithMarkdown(
       `We found ${docs.length} but were unable to produce messages for you due to invalid characters.`
@@ -169,6 +172,20 @@ bot.command("list", async (ctx) => {
 
 bot.command("update", async (ctx) => {
   const user = toUser(ctx.message.from);
+  const waitfor = await ratelimit(
+    user,
+    "update",
+    Date.now() + config.limits.command_ratelimit.update
+  );
+  if (waitfor < 0) {
+    await ctx.replyWithMarkdown(
+      `🚫 *Command Restricted*\n\n⏳ You can use this command again in *${prettyms(
+        Math.abs(waitfor)
+      )}*.`
+    );
+    return;
+  }
+
   await ctx.reply("🔎 Getting your list of threads or comments...");
 
   const crawlers = await hackernews.list(user).catch(utils.catcher);
@@ -212,6 +229,20 @@ bot.command("update", async (ctx) => {
 
 bot.command("unwatchall", async (ctx) => {
   const user = toUser(ctx.message.from);
+  const waitfor = await ratelimit(
+    user,
+    "unwatchall",
+    Date.now() + config.limits.command_ratelimit.unwatchall
+  );
+  if (waitfor < 0) {
+    await ctx.replyWithMarkdown(
+      `🚫 *Command Restricted*\n\n⏳ You can use this command again in *${prettyms(
+        Math.abs(waitfor)
+      )}*.`
+    );
+    return;
+  }
+
   await ctx.reply("🔎 Getting your list of threads or comments...");
 
   const crawlers = await hackernews.list(user).catch(utils.catcher);
@@ -238,7 +269,8 @@ bot.command("unwatchall", async (ctx) => {
     }
 
     const messages = [
-      `🚫 You have stopped watching a *${_.startCase(crawler.doc.type)}*\n`,
+      `🚫 You have stopped watching a *${_.startCase(crawler.doc.type)}*`,
+      "---------",
       ...hackernews.toShortView(crawler.doc),
     ];
     await ctx.replyWithMarkdown(messages.join("\n"));
@@ -262,4 +294,48 @@ function toUser(from: TelegrafUser): database.IUser {
     username: from.username || "",
     watch_list: [],
   };
+}
+
+async function ratelimit(
+  user: database.IUser,
+  command: string,
+  deadline = Date.now() + 60 * 60 * 1000
+): Promise<number> {
+  const s = await admin
+    .firestore()
+    .collection(database.COLLECTION_RATELIMIT)
+    .doc(user.id)
+    .get();
+  if (!s.exists) {
+    await admin
+      .firestore()
+      .collection(database.COLLECTION_RATELIMIT)
+      .doc(user.id)
+      .set({ [command]: deadline });
+    return deadline;
+  }
+
+  const ratelimit = s.data() as database.IRatelimit;
+  if (!ratelimit[command]) {
+    await admin
+      .firestore()
+      .collection(database.COLLECTION_RATELIMIT)
+      .doc(user.id)
+      .update({ [command]: deadline });
+    return deadline;
+  }
+
+  const diff = Date.now() - ratelimit[command];
+  // set new deadline because the old one are outdate
+  if (diff > 0) {
+    await admin
+      .firestore()
+      .collection(database.COLLECTION_RATELIMIT)
+      .doc(user.id)
+      .update({ [command]: deadline });
+    return deadline;
+  }
+
+  // not pass the old deadline yet
+  return diff;
 }

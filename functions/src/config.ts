@@ -18,5 +18,15 @@ export default {
       .map((s) => s.trim())
       .filter(Boolean),
     max_watch_items: Number(process.env.LIMITS_MAX_WATCH_ITEMS) || 10,
+
+    command_ratelimit: {
+      // allow one command per 30 mins
+      unwatchall:
+        Number(process.env.LIMITS_COMMANDS_RATELIMIT_UNWATCHALL) ||
+        30 * 60 * 1000,
+      // allow one command per 15 mins
+      update:
+        Number(process.env.LIMITS_COMMANDS_RATELIMIT_UPDATE) || 15 * 60 * 1000,
+    },
   },
 };
