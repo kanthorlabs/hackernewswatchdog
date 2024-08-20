@@ -98,5 +98,5 @@ export const onStatisticsCrawlerTaskWritten = onDocumentWritten(
     region: deployment.FIREBASE_REGION,
     document: `${database.COLLECTION_CRAWLER_TASK}/{task_id}`,
   },
-  statistics.onAlertWritten()
+  statistics.onCrawlerTaskWritten()
 );
