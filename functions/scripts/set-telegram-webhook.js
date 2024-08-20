@@ -10,11 +10,12 @@ async function main() {
     throw new Error("BOTS_AUTHENTICATION_TOKEN is required");
   if (!process.env.BOTS_TELEGRAM_TOKEN)
     throw new Error("BOTS_TELEGRAM_TOKEN is required");
-  if (!process.env.BOTS_TELEGRAM_WEBHOOK_URL)
-    throw new Error("BOTS_TELEGRAM_WEBHOOK_URL is required");
+  if (!process.env.BOTS_TELEGRAM_WEBHOOK_ENDPOINT)
+    throw new Error("BOTS_TELEGRAM_WEBHOOK_ENDPOINT is required");
 
   const bot = new Telegram(process.env.BOTS_TELEGRAM_TOKEN);
-  const webhookUrl = new URL(process.env.BOTS_TELEGRAM_WEBHOOK_URL);
+  const webhookUrl = new URL(process.env.BOTS_TELEGRAM_WEBHOOK_ENDPOINT);
+  webhookUrl.pathname += "/webhook/telegram";
   webhookUrl.searchParams.set(
     "authorization",
     process.env.BOTS_AUTHENTICATION_TOKEN

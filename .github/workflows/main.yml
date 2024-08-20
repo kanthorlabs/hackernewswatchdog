@@ -21,13 +21,13 @@ jobs:
         working-directory: ./functions
         run: |
           touch .env
-          echo BOTS_TELEGRAM_TOKEN=$BOTS_TELEGRAM_TOKEN >> .env
-          echo BOTS_TELEGRAM_WEBHOOK_URL=$BOTS_TELEGRAM_WEBHOOK_URL >> .env
           echo BOTS_AUTHENTICATION_TOKEN=$BOTS_AUTHENTICATION_TOKEN >> .env
+          echo BOTS_TELEGRAM_TOKEN=$BOTS_TELEGRAM_TOKEN >> .env
+          echo BOTS_TELEGRAM_WEBHOOK_ENDPOINT=$BOTS_TELEGRAM_WEBHOOK_ENDPOINT >> .env
         env:
-          BOTS_TELEGRAM_TOKEN: ${{ secrets.BOTS_TELEGRAM_TOKEN }}
-          BOTS_TELEGRAM_WEBHOOK_URL: ${{ secrets.BOTS_TELEGRAM_WEBHOOK_URL }}
           BOTS_AUTHENTICATION_TOKEN: ${{ secrets.BOTS_AUTHENTICATION_TOKEN }}
+          BOTS_TELEGRAM_TOKEN: ${{ secrets.BOTS_TELEGRAM_TOKEN }}
+          BOTS_TELEGRAM_WEBHOOK_ENDPOINT: ${{ secrets.BOTS_TELEGRAM_WEBHOOK_ENDPOINT }}
 
       - name: deploy
         uses: w9jds/firebase-action@v13.10.0
