@@ -38,7 +38,7 @@ bot.use((ctx, next) => {
 
 bot.start(async (ctx) => {
   await ctx.reply(
-    MESSAGES.START.join("\n") + "\n---------\n" + MESSAGES.HELP.join("\n"),
+    MESSAGES.START.join("\n") + "\n\n---------\n\n" + MESSAGES.HELP.join("\n"),
     {
       parse_mode: "Markdown",
     }
@@ -77,7 +77,8 @@ bot.command("watch", async (ctx) => {
         "⚠️ We could not start watching this thread or comment because of the following error:",
         "---------",
         err,
-      ].join("\n")
+      ].join("\n"),
+      { parse_mode: "Markdown" }
     );
     return;
   }
