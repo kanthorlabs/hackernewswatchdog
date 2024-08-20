@@ -12,7 +12,7 @@ const bot = new Telegraf(deployment.BOTS_TELEGRAM_TOKEN);
 const MESSAGES = {
   START: [
     "🌟 Welcome to the *Hacker News WatchDog Bot*! 🐾\n",
-    "🔔 Stay on top of the latest discussions with real-time notifications whenever new comments are posted on your favorite Hacker News threads.",
+    "🔔 Stay on top of the latest discussions with timely notifications whenever new comments are posted on your favorite Hacker News threads.",
     "💬 Type /help to explore all the available commands and features!",
   ],
   HELP: [
